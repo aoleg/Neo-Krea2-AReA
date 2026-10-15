@@ -25,8 +25,8 @@ import torch.nn.functional as F
 
 from backend.quant_ops import ck
 
-from lib_krea2_area import KREA2_TAP_DIM, KREA2_TAP_LAYERS, attention, tiling
-from lib_krea2_area.state import CallState, RunState
+from lib_krea2_area import ENGAGE_RATIO, KREA2_TAP_DIM, KREA2_TAP_LAYERS, attention, tiling
+from lib_krea2_area.state import CallState, RunState, engage_extent, engages
 
 
 def is_krea2_dit(dit: Any) -> bool:
@@ -130,6 +130,10 @@ def begin_call(dit: Any, state: RunState, x: Any, context: Any, options: Any) ->
     native = state.config.native
     if max(h, w) <= native:
         state.say_once(("fits", h, w), f"{h}x{w} patch grid fits the native extent {native}: plain attention")
+        return cur
+    if not engages(h, w, native):
+        state.say_once(("near", h, w), f"{h}x{w} patch grid is under {ENGAGE_RATIO:g}x the native extent {native} "
+                                       f"(AReA engages from {engage_extent(native)} patches): plain attention")
         return cur
 
     options = options if isinstance(options, dict) else {}

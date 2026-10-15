@@ -9,6 +9,8 @@ call can leak into the next.
 
 from __future__ import annotations
 
+import math
+
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional, Sequence, Tuple
 
@@ -16,6 +18,7 @@ import torch
 
 from lib_krea2_area import (
     BRIDGE_RATIO_DEFAULT,
+    ENGAGE_RATIO,
     HALO_DEFAULT,
     NATIVE_RAW,
     PHASE_SWITCH_SIGMA,
@@ -58,6 +61,23 @@ class CallState:
     txtlen: int = 0
     checked: bool = False                # the first block has cross-checked the sequence length
     data: Dict[str, Any] = field(default_factory=dict)
+
+
+def engage_extent(native: int) -> int:
+    """The smallest grid side, in patches, at which AReA engages for this native extent."""
+    return math.ceil(ENGAGE_RATIO * int(native))
+
+
+def engages(h: int, w: int, native: int) -> bool:
+    """Whether a grid is far enough beyond the native extent for AReA to help.
+
+    Upstream engages on anything past native, and its `f0` rule then pools to the smallest
+    divisor whose grid fits native. Just past native that undershoots badly: a 72x54 grid
+    (SPEED's half-resolution pass at 1728x2304) pools at f=2 to 36x27, about half of native,
+    so the layout forms well below the scale the model knows, and its window ladder costs
+    more than full attention. Below `ENGAGE_RATIO` x native the original attention runs.
+    """
+    return max(int(h), int(w)) >= engage_extent(native)
 
 
 def step_sigmas(sampling_sigmas: Any) -> Tuple[float, ...]:
@@ -137,7 +157,7 @@ class RunState:
         a pass that starts below it has no Phase I and a full Phase II ladder.
         """
         cfg = self.config
-        if max(h, w) <= cfg.native:
+        if not engages(h, w, cfg.native):
             return None
         sigmas = step_sigmas(sampling_sigmas)
         if not sigmas:
