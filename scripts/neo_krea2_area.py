@@ -107,7 +107,7 @@ class Krea2AReA(scripts.Script):
                 step=0.005,
                 value=PHASE_SWITCH_SIGMA,
                 label="Phase switch sigma",
-                info="Phase I (pooled keys) runs while sigma is at or above this, Phase II (windows) below; the paper uses 0.86 on Qwen-Image, 0.89 on FLUX.1, 0.94 on FLUX.2",
+                info="Phase I (pooled keys) runs while sigma is at or above this, Phase II (windows) below; on Krea 2 0.80 to 0.83 holds the layout, 0.86 can duplicate objects (windows start too early), 0.5 echoes every edge (pooling runs too late)",
             )
 
             with gr.Row():
