@@ -116,7 +116,7 @@ class RunState:
         self.seed = int(seed)
         self.active_pass = True          # False while a hires pass runs with "Apply to hires-fix pass" off
         self.current: Optional[CallState] = None
-        self.calls = 0                   # model calls seen since install, for the logs and the tests
+        self.calls = 0                   # model calls seen since install
         self.ropes: Dict[Any, Any] = {}  # coarse RoPE pairs, keyed on (h, w, f, txtlen, batch, device)
         self._said: set = set()
         self._schedule_key = None

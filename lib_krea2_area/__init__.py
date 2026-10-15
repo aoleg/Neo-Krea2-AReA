@@ -19,7 +19,7 @@ NATIVE_CUSTOM = "Custom"
 
 #   defaults from the paper, except the phase switch: the paper's Qwen-Image value 0.86 (FLUX.1 0.89,
 #   FLUX.2 0.94) lets Krea 2 duplicate objects when a step falls just under it (windows from sigma
-#   0.852 at 20 steps), 0.80 and 0.83 do not, and 0.5 echoes every edge; see docs/validation.md
+#   0.852 at 20 steps), 0.80 and 0.83 do not, and 0.5 echoes every edge (first live calibration, 2026-10-15)
 PHASE_SWITCH_SIGMA = 0.80
 POOLING_DEFAULT = "subsample"
 HALO_DEFAULT = 8

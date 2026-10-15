@@ -1,7 +1,7 @@
 """The Krea 2 adapter: detection, grid and text length, and the per-call decision of what
 each attention forward runs.
 
-Host facts this rests on (Forge Neo `backend/nn/krea.py`, pinned by `tests/krea_replica.py`):
+Host facts this rests on (Forge Neo `backend/nn/krea.py`):
 
 * `SingleStreamDiT.forward(x, timesteps, context, attention_mask=None, transformer_options={})`
   pads `x` to the 2x2 patch, so the image grid is `ceil(H/2) x ceil(W/2)`, and concatenates

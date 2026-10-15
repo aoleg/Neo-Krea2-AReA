@@ -27,7 +27,7 @@ Vendored files and what was changed in each:
                                its docstring notes that the bridge-ranking keys may carry
                                fewer heads than the attention keys.
 
-Everything else in this repository (the Krea 2 adapter, the Forge Neo script, the tests
-and the documentation) is original to this project and is, in the sense of the Apache
+Everything else in this repository (the Krea 2 adapter, the Forge Neo script and the
+documentation) is original to this project and is, in the sense of the Apache
 License, a Derivative Work of the AReA sample code where it adapts upstream's FLUX.1
 backbone adapter (area/backbones/flux.py and area/backbones/base.py) to Krea 2.

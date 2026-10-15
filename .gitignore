@@ -1,3 +1,7 @@
-PLAN.md
+# development plans and tests stay local, never on GitHub
+PLAN*.md
+tests/
+docs/validation.md
+.claude/
 __pycache__/
 *.pyc
