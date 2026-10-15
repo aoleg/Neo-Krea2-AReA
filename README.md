@@ -2,7 +2,7 @@
 
 A Forge Neo extension that applies AReA, Adaptive Receptive-Field Attention (Rajabi, Roohi, Lindell and Taati, [arXiv:2610.17227](https://arxiv.org/abs/2610.17227)), to Krea 2 when the canvas is larger than the model's native extent. It is training-free: the latent is never resized, the sampler is never touched, and canvases at or below the native extent run the original attention.
 
-Status: work in progress. Only the vendored modules and their tests are in place so far. The full README (install, knobs, stand-down rules, composition with SPEED and hires fix, calibration table) follows once the defaults are measured.
+Status: work in progress. The install, pass-through and restore machinery is in place; Phase I and Phase II are not wired yet, so every canvas currently runs the original attention. The full README (install, knobs, stand-down rules, composition with SPEED and hires fix, calibration table) follows once the defaults are measured.
 
 ## How it works, in two lines
 
