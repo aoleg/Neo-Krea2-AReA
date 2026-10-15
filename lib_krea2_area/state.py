@@ -75,7 +75,9 @@ def engages(h: int, w: int, native: int) -> bool:
     divisor whose grid fits native. Just past native that undershoots badly: a 72x54 grid
     (SPEED's half-resolution pass at 1728x2304) pools at f=2 to 36x27, about half of native,
     so the layout forms well below the scale the model knows, and its window ladder costs
-    more than full attention. Below `ENGAGE_RATIO` x native the original attention runs.
+    more than full attention. At 1.5x (96x96) four windows already cost about 0.8 of a full
+    pass, so most window steps get no bridge and complete subjects on their own. Below
+    `ENGAGE_RATIO` x native the original attention runs.
     """
     return max(int(h), int(w)) >= engage_extent(native)
 

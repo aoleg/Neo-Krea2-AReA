@@ -97,7 +97,7 @@ class Krea2AReA(scripts.Script):
                     choices=[*NATIVE_CHOICES, NATIVE_CUSTOM],
                     value="RAW (64)",
                     label="Native extent",
-                    info="patches per side the checkpoint was trained at (64 is 1024 px); AReA engages from 1.5x this and is a no-op below",
+                    info="patches per side the checkpoint was trained at (64 is 1024 px); AReA engages from 2x this and is a no-op below",
                 )
                 native_custom = gr.Number(value=NATIVE_RAW, precision=0, label="Custom native extent", info="patches per side, used when Native extent is Custom")
 

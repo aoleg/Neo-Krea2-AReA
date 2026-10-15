@@ -25,10 +25,12 @@ POOLING_DEFAULT = "subsample"
 HALO_DEFAULT = 8
 BRIDGE_RATIO_DEFAULT = 0.5
 
-#   AReA engages only from this multiple of the native extent (96 patches, 1536 px on RAW). Just
-#   past native the pooled grid undershoots it (72x54 pools to 36x27), which reshaped SPEED's
-#   half-resolution layout at 1728x2304 and left a ghost of a second garment; 2x and 2.25x are fine
-ENGAGE_RATIO = 1.5
+#   AReA engages only from this multiple of the native extent (128 patches, 2048 px on RAW). Below
+#   it the pooled grid undershoots native (72x54 pools to 36x27, 96x96 to 48x48) and the windows
+#   cost so much of a full pass that the cost guard leaves them no bridge: 1.125x reshaped SPEED's
+#   half-resolution layout and left a ghost garment, 1.5x added a third person to a two-person
+#   prompt; 2x and 2.25x are fine
+ENGAGE_RATIO = 2.0
 
 #   the Qwen3-VL tap stack Krea 2 conditioning carries, `[B, txtlen, 12, 2560]`; the same
 #   identifying constants `neo-krea2-negpip` detects the DiT on
