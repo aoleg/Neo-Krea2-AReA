@@ -122,6 +122,8 @@ class RunState:
         self._schedule_key = None
         self._schedule: Optional[Schedule] = None
         self._offset = 0
+        self.layout_key = None           # the Phase II layout of the latest step, shared by its calls
+        self.layout = None
 
     def schedule_for(self, sampling_sigmas: Any, sigma: float, h: int, w: int,
                      txtlen: int) -> Optional[Tuple[Schedule, int]]:

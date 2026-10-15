@@ -118,8 +118,11 @@ def _after_first(module: Any, args: Any, output: Any) -> None:
     """Forward hook on `dit.first`: the image token embeddings `[B, h*w, C]`, once per call."""
     state = getattr(module, STATE_ATTR, None)
     cur = state.current if state is not None else None
-    if cur is None or cur.phase != "fine":
+    if cur is None or cur.phase != "fine" or cur.data.get("layout") is not None:
         return None
+    if output.ndim != 3 or int(output.shape[1]) != cur.h * cur.w:
+        return None
+    krea2.fine_layout(state, cur, output)
     return None
 
 

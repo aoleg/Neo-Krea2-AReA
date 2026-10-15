@@ -25,7 +25,7 @@ import torch.nn.functional as F
 
 from backend.quant_ops import ck
 
-from lib_krea2_area import KREA2_TAP_DIM, KREA2_TAP_LAYERS, attention
+from lib_krea2_area import KREA2_TAP_DIM, KREA2_TAP_LAYERS, attention, tiling
 from lib_krea2_area.state import CallState, RunState
 
 
@@ -148,9 +148,37 @@ def begin_call(dit: Any, state: RunState, x: Any, context: Any, options: Any) ->
 
     if phase == "coarse":
         cur.data["rope_q"], cur.data["rope_kv"] = coarse_ropes(dit, state, h, w, size, cur.txtlen, int(x.shape[0]), x.device)
-        cur.phase = phase
-    #   Phase II is not wired yet: those steps run the original attention
+    else:
+        cur.data["layout"] = None       # filled by the `dit.first` hook, before the first block
+    cur.phase = phase
     return cur
+
+
+def fine_layout(state: RunState, cur: CallState, img: torch.Tensor) -> None:
+    """The Phase II layout of this step (upstream `FluxBackbone._after_embedding`), from the
+    image token embeddings `[B, h*w, C]` that `dit.first` just produced.
+
+    Windows from the wavelet detail map and the step's jitter, bridge count and Halo cut so
+    the step never costs more than full attention. Built once per step and kept for the
+    other model calls of that step, so a cond and an uncond batch that Forge runs as two
+    calls see the same windows.
+    """
+    cfg = state.config
+    key = (cur.step, cur.h, cur.w, cur.txtlen, cur.size, state.seed, img.dtype, str(img.device))
+    if state.layout_key != key:
+        h, w, t = cur.h, cur.w, cur.txtlen
+        floor = min(cfg.window_floor, max(h, w))
+        energy = tiling.detail_map(img, h, w)
+        windows = tiling.adaptive_tiling(energy, h, w, cur.size, floor, t, rng=tiling.step_rng(state.seed, cur.step, 0x5EA1))
+        registers = max(1, int(round(cur.size * cfg.bridge_ratio))) ** 2 if cfg.bridge_ratio > 0 else 0
+        #   never cost more than a full-attention step: cut bridge tokens, then the Halo
+        registers, halo = attention.fit_extra_keys(windows, h, w, t, registers, cfg.halo)
+        state.layout = attention.build_fine_layout(windows, h, w, halo, registers, state.seed, cur.step, img.dtype, img.device)
+        state.layout_key = key
+        split = sum(1 for win in windows if win.split)
+        state.say_once(("fine", h, w, cur.step),
+                       f"step {cur.step} Phase II: w={cur.size}, {len(windows)} windows ({split} split), Halo {halo}, bridge {registers} per window")
+    cur.data["layout"] = state.layout
 
 
 def _qkv(attn: Any, x: torch.Tensor):
@@ -191,6 +219,46 @@ def _coarse(attn: Any, block: int, state: RunState, cur: CallState, x: torch.Ten
     return attn.wo(out * F.sigmoid(gate))
 
 
+def _window_attention(heads: int, transformer_options: Any) -> Callable:
+    """The attention callable `windowed_attention` takes: `[B*G, L, H, D]` in and out, through
+    Forge's own attention function with `skip_reshape=True`. The transposes are views; the
+    `B L (H D)` result is contiguous, so the reshape back is one too."""
+    host = _host_attention()
+
+    def attend(q: torch.Tensor, k: torch.Tensor, v: torch.Tensor) -> torch.Tensor:
+        b, length, _, dim = q.shape
+        out = host(q.transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2), heads, mask=None, skip_reshape=True,
+                   transformer_options=transformer_options)
+        return out.reshape(b, length, heads, dim)
+
+    return attend
+
+
+def _fine(attn: Any, cur: CallState, x: torch.Tensor, freqs: Any, transformer_options: Any) -> torch.Tensor:
+    """Phase II: attention inside each window at true positions, its keys extended by the
+    Halo ring and the bridge tokens, outputs merged with the centre weights.
+
+    The vendored `windowed_attention` works in `B L H D`; the `B H L D` tensors here go in
+    as transposed views, so the only copies are the window gathers it makes anyway. The
+    bridge ranks tokens on the unrotated keys of the 12 key/value heads, before expansion:
+    a repeated head adds the same squared distance four times over, so the ranking is the
+    one upstream computes on 48 heads, at a quarter of the cost.
+    """
+    q, k, v, gate = _qkv(attn, x)
+    k_unrotated = k
+    q, k = ck.apply_rope(q, k, freqs)
+    k, v = _expand(attn, k, v)
+    t = cur.txtlen
+    q, k, v = q.transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2)
+    out_txt, out_img = attention.windowed_attention(
+        q[:, :t], k[:, :t], v[:, :t], q[:, t:], k[:, t:], v[:, t:], k_unrotated.transpose(1, 2)[:, t:],
+        cur.data["layout"], attn=_window_attention(attn.heads, transformer_options),
+    )
+    b, length = int(x.shape[0]), int(x.shape[1])
+    out = torch.cat([out_txt, out_img], dim=1).reshape(b, length, -1).to(x.dtype)
+    return attn.wo(out * F.sigmoid(gate))
+
+
 def attention_forward(attn: Any, block: int, original: Callable, state: RunState, cur: CallState,
                       x: torch.Tensor, freqs: Any, mask: Any, transformer_options: Any) -> torch.Tensor:
     """The body of a patched `Attention.forward` once a phase is set for this call."""
@@ -202,8 +270,14 @@ def attention_forward(attn: Any, block: int, original: Callable, state: RunState
                            f"sequence of {int(x.shape[1])} tokens, expected {cur.txtlen} text + {cur.h}x{cur.w} image: plain attention")
             cur.phase = None
 
+    if cur.phase == "fine" and cur.data.get("layout") is None:
+        state.say_once("layout", "no Phase II layout for this call (dit.first did not run?): plain attention")
+        cur.phase = None
+
     if cur.phase == "coarse":
         return _coarse(attn, block, state, cur, x, transformer_options)
+    if cur.phase == "fine":
+        return _fine(attn, cur, x, freqs, transformer_options)
 
     #   keyword past the required positional, for the reason in negpip's `_hook_attention`:
     #   a parameter interposed before `transformer_options` must take its default, not ours
