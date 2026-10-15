@@ -78,7 +78,7 @@ def _wrap_attention(attn: Any, block: int, state: RunState) -> None:
         cur = st.current if st is not None else None
         if cur is None or cur.phase is None or mask is not None or freqs is None:
             return original(x, freqs=freqs, mask=mask, transformer_options=transformer_options)
-        return krea2.attention_forward(attn, original, st, cur, x, freqs, mask, transformer_options)
+        return krea2.attention_forward(attn, getattr(attn, BLOCK_ATTR, 0), original, st, cur, x, freqs, mask, transformer_options)
 
     setattr(area_attention_forward, MARKER, True)
     setattr(attn, ORIGINAL_FORWARD, original)
